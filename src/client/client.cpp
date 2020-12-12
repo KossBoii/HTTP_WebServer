@@ -1,6 +1,13 @@
 #include <iostream>
 #include <vector>
 #include <sstream>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#define PORT 8080
 
 using namespace std;
 
@@ -11,6 +18,32 @@ void viewScreen();
 void viewSpecificQuestion(string title);
 
 int main() {
+    int sock_id = 0;
+    struct sockaddr_in sv_addr;
+    sock_id = socket(AF_INET, SOCK_STREAM, 0);
+    if(sock_id < 0){
+        cout<<"client: socket creation error\n";
+        return 1;
+    }
+    memset(&sv_addr, '0', sizeof(sv_addr));
+
+    sv_addr.sin_family = AF_INET;
+    sv_addr.sin_port = htons(PORT);
+
+    if(inet_pton(AF_INET, "127.0.0.1", &sv_addr.sin_addr) <= 0){
+        cout<<"client: invalid address";
+        return 1;
+    }
+
+    if(connect(sock_id, (struct sockaddr*)& sv_addr, sizeof(sv_addr)) < 0){
+        cout<<"client: connection failed";
+        return 1;
+    }
+
+    string mess = "Hello Sever. I am Client";
+    send(sock_id, mess.c_str(), mess.length(), 0);
+    cout<<"client: message has been sent";
+
     welcomeMessage();
     return 0;
 }

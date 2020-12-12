@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <list>
+#include <jsoncpp/json/json.h>
 
 using namespace std;
 
@@ -17,20 +18,21 @@ struct ClientIdentity {
     string req_time;
 };
 
-struct ClientInfo {
+struct ClientRequest {
+    string req_first_line;      // first line of sent request IMPORTANT
     string req_method;
+    string req_filename;
     string req_type;
     string req_version;
+    Json::Value reqBody;
+    bool is_rest_api;
 
     int req_accept_id;
-    string req_ip;
     u_int16_t req_port_num;
-
-    string req_first_line;    
-    string req_filename;
+    string req_ip;
     string req_time;
+    
     string req_serve_time;
-
     string req_ctype;
     int req_file_size;
     bool status_file;
@@ -42,9 +44,9 @@ class Parser {
 public:
     // Class Methods
     void parseRequest(ClientIdentity client);
-    void requestQueue(ClientInfo client_info);
+    void requestQueue(ClientRequest client_request);
 
-    void checkRequest(ClientInfo client_info);
+    void checkRequest(ClientRequest client_request);
     void popRequest();
     void processRequest();
 
@@ -53,11 +55,11 @@ public:
     
 private:
     bool checkFileExists(string fileName);
-    void changeDirectory(ClientInfo client_info);
+    void changeDirectory(ClientRequest client_request);
 
     // Class Variables
-    list<ClientInfo> client_list;
-    list<ClientInfo> req_list;
+    list<ClientRequest> client_list;
+    list<ClientRequest> req_list;
 };
 
 

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style type="text/css">input[type="submit"]{cursor: pointer;}</style>
+    <title>Q&A Client</title>
+</head>
+<body>
+    <h3>Login here</h3>
+    <form action="http://localhost:8080/getUser" method="GET" class="login">
+        <table>
+            <tr>
+                <td>Username:</td>
+                <td>
+                    <input type="text" name="username">
+                </td>
+            </tr>
+
+            <tr>
+                <td>Password:</td>
+                <td>
+                    <input type="password", name="password">
+                </td>
+            </tr>
+
+            <tr>
+                <td>
+                    <input type="submit" value="Login">
+                </td>
+
+                <td>
+                    Not yet a Member?<a href="registration.html">Register</a>
+                </td>
+            </tr>
+        </table>
+    </form>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="js/login.js"></script>
+</body>
+</html>

@@ -1,6 +1,8 @@
 #include "diamondhttp.h"
 #include <iostream>
+#include <fstream>
 #include <string.h>
+#include <string>
 #include <cstring>
 #include <pthread.h>
 #include <signal.h>
@@ -25,12 +27,41 @@ int num_thread = 20;
 bool help_manual = false;
 int sleep_time = 30;
 string log_file = "log.txt";
-string root_dir =  "./../../database";
+string root_dir =  "./../database";
 int sock_id = 0;
 
 Parser* parser = new Parser();           // Only create 1 instance of Parser object per server run
 Server* run = new Server();         // Only create 1 instance of Server object per server run
 sig_atomic_t flag = 0;
+
+map<string, int> rest_api_list = {
+    {"addQuestion", 0},
+    {"updateQuestion", 1},
+    {"removeQuestion", 2},
+    {"getQuestion", 3},
+    {"getQuestions", 4},
+    {"addAnswer", 5},
+    {"getAnswers", 6},
+    {"addUser", 7},
+    {"updateUser", 8},
+    {"removeUser", 9},
+    {"getUser", 10}
+};
+
+map<int, string> status_res_list = {
+    {200, "OK"},
+    {201, "Created"},
+    {202, "Accepted"},
+    {204, "No Content"},
+    {400, "Bad Request"},
+    {401, "Unauthorized"},
+    {403, "Forbidden"},
+    {404, "Not Found"},
+    {500, "Internal Server Error"},
+    {501, "Not Implemented"}
+};
+
+map<int, string> question_id_to_fname = map<int, string>();
 
 void print_help() {
     cout<<"--------------------------------------------------------------------"<<endl;
@@ -62,6 +93,19 @@ void signal_handler(int signal) {
 }
 
 int main(int argc, char** argv) {
+    fstream iFile;
+    iFile.open((root_dir + "/config.txt").c_str(), ios::in);
+    if(iFile.is_open()){
+        string line;
+        while(getline(iFile, line)){
+            int index = line.find_first_of("->");
+            int key = stoi(line.substr(0, index));
+            string val = line.substr(index + 2, -1);
+            question_id_to_fname.insert({key, val});
+        }
+        iFile.close();
+    }
+
     int opt = getopt(argc, argv, "hp:s:");
     while(opt != -1){
         switch(opt){
@@ -115,6 +159,5 @@ int main(int argc, char** argv) {
     parser = NULL;
     delete run;
     run = NULL;
-
     return 0;
 }

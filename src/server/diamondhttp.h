@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include "server.h"
 #include "parser.h"
+#include <map>
 
 using namespace std;
 
@@ -28,6 +29,10 @@ extern bool help_manual;
 extern int sleep_time;
 extern string log_file;
 extern string root_dir;
+
+extern map<string, int> rest_api_list;
+extern map<int, string> status_res_list;
+extern map<int, string> question_id_to_fname;
 
 
 

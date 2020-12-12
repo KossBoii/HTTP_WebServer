@@ -4,15 +4,20 @@
 #include <string.h>
 #include <fstream>
 #include "parser.h"
+#include <jsoncpp/json/json.h>
 
 using namespace std;
 
 class DataUtils {
 public:
-    void sendData(ClientInfo client_info);
+    void sendData(ClientRequest client_request);
 
 private:
-    void listDir(ClientInfo client_info);
+    // HTTP Extra Functions
+    string createReqHeader(ClientRequest client_request, int status_code, int content_size, string cur_time_formatted, string last_mod_time);
+    
+    // Directory-related Functions
+    void listDir(ClientRequest client_request);
 };
 
 

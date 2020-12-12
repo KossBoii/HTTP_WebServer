@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style type="text/css">input[type="submit"]{cursor: pointer;}</style>
+    <!-- <script src="script.js"></script> -->
+    <title>Q&A Client</title>
+</head>
+<body>
+    <h3>Registe Here</h3>
+    <form id="reg_form" action="http://localhost:8080/addUser" method="POST" class="reg">
+        <table>
+            <tr>
+                <td>Username:</td>
+                <td>
+                    <input type="text" name="username" placeholder="Enter username here">
+                </td>
+            </tr>
+
+            <tr>
+                <td>Password:</td>
+                <td>
+                    <input type="password" name="password" placeholder="Enter password here">
+                </td>
+            </tr>
+            
+            <tr>
+                <td>Email:</td>
+                <td>
+                    <input type="email" name="email" placeholder="Enter email here">
+                </td>
+            </tr>
+
+            <tr>
+                <td>Gender:</td>
+                <td>
+                    <input type="radio" name="gender">Male
+                    <input type="radio" name="gender">Female
+                    <input type="radio" name="gender">Others
+                </td>
+            </tr>
+
+            <tr>
+                <td>Phone:</td>
+                <td>
+                    <select>
+                        <option selected>626</option>
+                        <option>310</option>
+                        <option>323</option>
+                        <option>818</option>
+                        <option>332</option>
+                        <option>646</option>
+                        <option>917</option>
+                        <option>718</option>
+                    </select>
+                    <input type="phone" name="mobile" maxlength="7">
+                </td>
+
+                <tr>
+                    <td>
+                        <input type="submit" value="submit">
+                    </td>
+
+                    <td>
+                        Already a user?<a href="login.html"> Login Here</a>
+                    </td>
+                </tr>
+            </tr>
+
+        </table>
+    </form>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="js/registration.js"></script>
+</body>
+</html>

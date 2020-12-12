@@ -1,5 +1,7 @@
 #include "server.h"
 #include <iostream>
+#include <fstream>
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -7,6 +9,8 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include "diamondhttp.h"
+#include <unistd.h>
+#include <stdlib.h>
 #include "parser.h"
 
 using namespace std;
@@ -17,6 +21,25 @@ Server::Server(){   // CTORs
     (this->inVal).ai_socktype = SOCK_STREAM;
     (this->inVal).ai_flags = AI_PASSIVE;
     yes = 1;
+}
+
+void helper_func(int signal){
+    // save question_id_to_fname to file
+    cout<<"\nsave question_id_to_fname to file "<<(root_dir + "/config.txt")<<"\n";
+    ofstream wFile;
+
+    wFile.open((root_dir + "/config.txt").c_str(), ios::trunc);
+
+    if(wFile.is_open()){
+        map<int, string>::iterator it;
+        for(it=question_id_to_fname.begin(); it != question_id_to_fname.end(); it++){
+            wFile<<it->first<<"->"<<it->second<<endl;
+        }
+        wFile.close();
+    } else{
+        cout<<"file does not open\n";
+    }
+    exit(signal);
 }
 
 void Server::accept_connection(){
@@ -58,6 +81,8 @@ void Server::accept_connection(){
     if(listen(sock_id, MAX_CONNECTIONS) == -1){
         perror("listen: ");
     }
+
+    signal(SIGINT, helper_func);
 
     while(true) {
         this->address = sizeof(this->client_addr);

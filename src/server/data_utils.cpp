@@ -1,5 +1,6 @@
 #include "data_utils.h"
 #include <unistd.h>
+#include <iostream>
 #include <string>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -14,9 +15,15 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <vector>
-#include<algorithm>
+#include <algorithm>
+#include <jsoncpp/json/json.h>
 #include <stdio.h>
+#include <map>
+#include <vector>
 #include "diamondhttp.h"
+#include "user.h"
+#include "question.h"
+#include "answer.h"
 
 using namespace std;
 
@@ -33,9 +40,15 @@ bool sortDirectory(const string &lhs, const string &rhs)
    return false;
 }
 
-void DataUtils::sendData(ClientInfo client_info){
-    if(client_info.status_file){
-        if(client_info.req_type == "GET"){
+void DataUtils::sendData(ClientRequest client_request){
+    // cout<<"----------------------------------------------\n";
+    // cout<<client_request.status_file<<endl;
+    // cout<<"----------------------------------------------\n";
+
+    if(!client_request.is_rest_api){
+        if(client_request.req_method == "GET"){
+            cout<<"This is GET request"<<endl;
+
             // Get current time 
             time_t temp_time = time(NULL);
             tm* cur_time = gmtime(&temp_time);
@@ -44,81 +57,206 @@ void DataUtils::sendData(ClientInfo client_info){
                 perror("time format error: ");        
             }
 
-
             char last_mod_time[50];
             struct stat buf;
-            stat(client_info.req_filename.c_str(), &buf);
+            stat(client_request.req_filename.c_str(), &buf);
             strcpy(last_mod_time, ctime(&buf.st_mtime));
 
-            int temp = client_info.req_filename.find_last_of(".");
-            string extension = client_info.req_filename.substr(temp+1, client_info.req_filename.size());
+            int temp = client_request.req_filename.find_last_of(".");
+            if(temp != string::npos){       // no file extension
+                string extension = client_request.req_filename.substr(temp+1, client_request.req_filename.size());
 
-            // Check extension type
-            if(extension == "txt" || extension == "html" || extension == "htm"){
-                client_info.req_ctype = "text/html";
+                // Check extension type
+                if(extension == "txt" || extension == "html" || extension == "htm"){
+                    client_request.req_ctype = "text/html";
+                }
+                else if(extension == "gif" || extension == "jpeg" || extension == "jpg"){
+                    client_request.req_ctype = "image/" + extension;
+                } else {
+                    client_request.req_ctype = " ";
+                }
+
+                string temp_str(cur_time_formatted);
+                string temp_str2(last_mod_time);
+                string header = createReqHeader(client_request, 200, client_request.req_file_size, temp_str, temp_str2);
+
+                if(send(client_request.req_accept_id, header.c_str(), header.length(), 0) == -1){
+                    perror("send: ");
+                }
+
+                ifstream file;
+                char* content;
+                size_t size;
+                file.open(client_request.req_filename);
+                if(file.is_open()){
+                    string read;
+                    file.seekg(0, ios::end);
+                    size = file.tellg();
+                    content = new char[size];
+                    file.seekg(0, ios::beg);
+                    file.read(content, size);
+                } else {
+                    cout<<"Can't open file "<<client_request.req_filename<<endl;
+                }
+
+                if(send(client_request.req_accept_id, content, size, 0) == -1){
+                    perror("send");
+                }
+                file.close();
+                client_request.status_code = 200;
+                delete [] content;
             }
-            else if(extension == "gif" || extension == "jpeg" || extension == "jpg"){
-                client_info.req_ctype = "image/" + extension;
-            } else {
-                client_info.req_ctype = " ";
+        } 
+    } else {        // filename is REST API
+        // Get current time 
+        time_t temp_time = time(NULL);
+        tm* cur_time = gmtime(&temp_time);
+        char cur_time_formatted[50];
+        if(strftime(cur_time_formatted, 50, "%x:%X", cur_time) == 0){
+            perror("time format error: ");        
+        }
+
+        char last_mod_time[50];
+        struct stat buf;
+        stat(client_request.req_filename.c_str(), &buf);
+        strcpy(last_mod_time, ctime(&buf.st_mtime));
+
+        // Execution
+        map<string,int>::iterator i = rest_api_list.find(client_request.req_filename);
+        string header;
+        string temp_str(cur_time_formatted);
+        string temp_str2(last_mod_time);
+        int status_code = 0;
+        if(i != rest_api_list.end()){
+            Json::Value resultBody;
+            switch(rest_api_list[client_request.req_filename]){
+            case 0:         // addQuestion
+                if(client_request.reqBody.empty() || client_request.req_method != "POST")         // request body is empty
+                    status_code = 400;
+                else
+                    status_code = addQuestion(client_request.reqBody);
+                break;
+            case 1:         // updateQuestion
+                if(client_request.reqBody.empty() || client_request.req_method != "PUT")         // request body is empty
+                    status_code = 400;
+                else
+                    status_code = updateQuestion(client_request.reqBody);
+                break;
+            case 2:         // removeQuestion
+                if(client_request.reqBody.empty() || client_request.req_method != "DELETE")         // request body is empty
+                    status_code = 400;
+                else
+                    status_code = removeQuestion(client_request.reqBody);
+                break;
+            case 3:         // getQuestion
+                if(client_request.reqBody.empty() || client_request.req_method != "GET")         // request body is empty
+                    status_code = 400;
+                else{
+                    status_code = getQuestion(client_request.reqBody, resultBody);
+                }
+                break;
+            case 4:         // getQuestions
+                if(client_request.reqBody.empty() || client_request.req_method != "GET")         // request body is empty
+                    status_code = getQuestions(resultBody);
+                else
+                    status_code = 400;                    
+                break;
+            case 5:         // addAnswer
+                if(client_request.reqBody.empty() || client_request.req_method != "POST")         // request body is empty
+                    status_code = 400;
+                else
+                    status_code = addAnswer(client_request.reqBody);
+                break;
+            case 6:         // getAnswers
+                if(client_request.reqBody.empty() || client_request.req_method != "GET")         // request body is empty
+                    status_code = 400; 
+                else
+                    status_code = getAnswers(client_request.reqBody, resultBody);
+                break;
+            case 7:         // addUser
+                if(client_request.reqBody.empty() || client_request.req_method != "POST"){         // request body is empty
+                    cout<<"reqBody: "<<client_request.reqBody<<endl;
+                    cout<<"req_method: "<<client_request.req_method<<endl;
+                    status_code = 400;
+                }
+                else{
+                    cout<<"Executing addUser\n";
+                    status_code = addUser(client_request.reqBody);
+                }
+                break;
+            case 8:         // updateUser
+                if(client_request.reqBody.empty() || client_request.req_method != "PUT")         // request body is empty
+                    status_code = 400;
+                else
+                    status_code = updateUser(client_request.reqBody);
+                break;
+            case 9:         // removeUser
+                if(client_request.reqBody.empty() || client_request.req_method != "DELETE"){         // request body is empty
+                    status_code = 400;    
+                }
+                else
+                    status_code = removeUser(client_request.reqBody);
+                break;
+            case 10:         // getUser
+                if(client_request.reqBody.empty() || client_request.req_method != "GET")         // request body is empty
+                    status_code = 400;
+                else
+                    status_code = getUser(client_request.reqBody, resultBody);
+                break;
             }
 
-            stringstream ss;
-            ss << client_info.req_file_size;
-            string file_size = ss.str();
-            string header = client_info.req_type + " " + client_info.req_method + " 200 OK\r\nDate: ";
-            string temp_str(cur_time_formatted);
-            header += temp_str;
-            header = header + "\r\n" + "Server: diamondhttp 1.0\r\n" + "Last-Modified:";
-            string temp_str2(last_mod_time);
-            header += temp_str2;
-            header += "Content-Type:" + client_info.req_ctype + "\r\n" + "Content-Length:" + file_size + "\r\n\r\n";
+            int size = 0;
+            string content;
+            if(status_code == 200 && !resultBody.empty()){
+                client_request.req_ctype = "application/json";
+                content = resultBody.toStyledString();
+                size = content.length();
+            }else{
+                client_request.req_ctype = " ";
+            }
 
-            if(send(client_info.req_accept_id, header.c_str(), header.length(), 0) == -1){
+            // Send request header
+            string header = createReqHeader(client_request, status_code, size, temp_str, temp_str2);                
+            cout<<"header: \n"<<header<<endl;
+            if(send(client_request.req_accept_id, header.c_str(), header.length(), 0) == -1){
                 perror("send: ");
             }
-
-            ifstream file;
-            char* content;
-            size_t size;
-            file.open(client_info.req_filename);
-            if(file.is_open()){
-                string read;
-                file.seekg(0, ios::end);
-                size = file.tellg();
-                content = new char[size];
-                file.seekg(0, ios::beg);
-                file.read(content, size);
-            } else {
-                cout<<"Can't open file "<<client_info.req_filename<<endl;
+            
+            // Send request body
+            if(status_code == 200 && !resultBody.empty()){
+                if(send(client_request.req_accept_id, content.c_str(), content.length(), 0) == -1){
+                    perror("send");
+                }
+            }      
+        } else {
+            cout<<"This REST API was not defined\n";
+            string header = createReqHeader(client_request, 501, 0, temp_str, temp_str2);
+            if(send(client_request.req_accept_id, header.c_str(), header.length(), 0) == -1){
+                perror("send: ");
             }
-
-            if(send(client_info.req_accept_id, content, size, 0) == -1){
-                perror("send");
-            }
-            file.close();
-            client_info.status_code = 200;
-            delete [] content;
         }
-    } else {
-        if(client_info.root_check){
-            write(client_info.req_accept_id, "Error 404: File Not Found", 25);
-        } 
-        client_info.status_code = 404;
-
-        listDir(client_info);
     }
 
-    close(client_info.req_accept_id);
+    close(client_request.req_accept_id);
+}
+
+string DataUtils::createReqHeader(ClientRequest client_request, int status_code, int content_size, string cur_time_formatted, string last_mod_time){
+    string header = client_request.req_type + "/" + client_request.req_version + 
+        " " + to_string(status_code) + " " + status_res_list[status_code] +"\r\n" + 
+        "Date: " + cur_time_formatted + "\r\n" + "Server: diamondhttp 1.0\r\n" + "Last-Modified:" +
+        last_mod_time + "Content-Type:" + client_request.req_ctype + "\r\n" + "Content-Length:" + 
+        to_string(content_size) + "\r\n\r\n";
+
+    return header;
 }
 
 // List the directory
-void DataUtils::listDir(ClientInfo client_info)
+void DataUtils::listDir(ClientRequest client_request)
 {
 	struct dirent *de=NULL;
 	DIR *d=NULL;
-	int last = client_info.req_filename.find_last_of("/");
-	string dir = client_info.req_filename.substr(0,last);
+	int last = client_request.req_filename.find_last_of("/");
+	string dir = client_request.req_filename.substr(0,last);
 	vector<string> dirlist;
 	char * dirname = new char[dir.size() + 1];
 	std::copy(dir.begin(), dir.end(), dirname);
@@ -126,8 +264,8 @@ void DataUtils::listDir(ClientInfo client_info)
 	d=opendir(dirname);
 	if(d == NULL) {
 		//	perror("Couldn't open directory");
-		write(client_info.req_accept_id,"Error 404: Directory Not Found",30);
-		client_info.status_code = 404;
+		write(client_request.req_accept_id,"Error 404: Directory Not Found",30);
+		client_request.status_code = 404;
 	} else {
 		while(de = readdir(d)) {
 			string s(de->d_name);
@@ -136,10 +274,10 @@ void DataUtils::listDir(ClientInfo client_info)
 
 		vector<string>::iterator it;
 		sort(dirlist.begin(),dirlist.end(), sortDirectory);
-		write(client_info.req_accept_id,"Files Listing:",14);
+		write(client_request.req_accept_id,"Files Listing:",14);
 		for ( it=dirlist.begin() ; it < dirlist.end(); it++ ) {
-			write(client_info.req_accept_id, (*it).c_str(), strlen((*it).c_str()));
-			write(client_info.req_accept_id,"\n",1);			
+			write(client_request.req_accept_id, (*it).c_str(), strlen((*it).c_str()));
+			write(client_request.req_accept_id,"\n",1);			
 		}
 
 		closedir(d);
